@@ -7,11 +7,17 @@ async function make_app_list() {
   for (const app of appList) {
     const tr = document.createElement("tr");
     const tdAppName = document.createElement("td");
+    tdAppName.innerText = app["表示名"].value;
     const tdButton = document.createElement("td");
     tdButton.className = "action";
     const button = document.createElement("button");
     button.textContent = "scvファイルをダウンロード";
-    button.onclick = () => get_kintone_records(companyId, app["アプリ番号"].value, app["表示名"].value);
+    button.onclick = () =>
+      get_kintone_records(
+        companyId,
+        app["アプリ番号"].value,
+        app["表示名"].value
+      );
     tdButton.appendChild(button);
     tr.appendChild(tdAppName);
     tr.appendChild(tdButton);
@@ -19,10 +25,9 @@ async function make_app_list() {
   }
 }
 
-async function get_kintone_app(companyId) {
-  /* https://nkr-group.cybozu.com/k/3776/*/
+async function get_kintone_records(companyId, appId, appName) {
   const requestParam = {
-    id: 3776,
+    id: appId,
     query_params: [
       {
         key: "会社レコード番号",
@@ -30,7 +35,7 @@ async function get_kintone_app(companyId) {
         value: companyId,
       },
     ],
-    fields: ["表示名", "アプリ番号"],
+    fields: [],
   };
 
   try {
@@ -47,8 +52,9 @@ async function get_kintone_app(companyId) {
     }
 
     const data = await response.json();
-    const appList = data.records;
-    return appList;
+    const res = data.records;
+    const csvData = jsonToCsv(res);
+    downloadCsv(csvData, `${appName}.csv`);
   } catch (error) {
     console.error("Error:", error); // エラーハンドリング
   }
@@ -66,29 +72,49 @@ async function get_kintone_records(companyId, appId, appName) {
 
 // JSONをCSVに変換する関数
 function jsonToCsv(json) {
-    const csvRows = [];
-    const headers = Object.keys(json[0]);
-    csvRows.push(headers.join(','));
+  const csvRows = [];
+  const excludedFields = [
+    "$id",
+    "$revision",
+    "作成日時",
+    "会社レコード番号",
+    "作成者",
+    "更新日時",
+    "更新者",
+    "レコード番号",
+  ];
 
-    for (const row of json) {
-        const values = headers.map(header => row[header].value);
-        csvRows.push(values.join(','));
-    }
+  const headers = [
+    "レコード番号",
+    ...Object.keys(json[0]).filter((field) => !excludedFields.includes(field)),
+  ];
+  csvRows.push(headers.join(","));
 
-    return csvRows.join('\n');
+  for (const row of json) {
+    const values = headers.map((header) => {
+      if (header === "レコード番号") {
+        return row["レコード番号"] ? row["レコード番号"].value : "";
+      }
+      const field = row[header];
+      return field ? field.value : "";
+    });
+    csvRows.push(values.join(","));
+  }
+
+  return "\uFEFF" + csvRows.join("\n");
 }
 
 // CSVファイルをダウンロードするためのリンクを作成
 function downloadCsv(csv, filename) {
-    const csvBlob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(csvBlob);
-    const a = document.createElement('a');
-    a.setAttribute('hidden', '');
-    a.setAttribute('href', url);
-    a.setAttribute('download', filename);
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  const csvBlob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(csvBlob);
+  const a = document.createElement("a");
+  a.setAttribute("hidden", "");
+  a.setAttribute("href", url);
+  a.setAttribute("download", filename);
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 make_app_list();
