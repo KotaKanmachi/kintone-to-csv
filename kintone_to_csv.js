@@ -1,3 +1,5 @@
+const endpoint = "https://kintone-relay-api-eidnwbgjma-an.a.run.app";
+// const endpoint = "http://localhost:3000";
 const companyId = 327;
 async function make_app_list() {
     const appList = await get_kintone_app(companyId);
